@@ -40,8 +40,12 @@ def get_client(access_token: str) -> dropbox.Dropbox:
 def list_files(access_token: str, path: str = "") -> list[FileInfo]:
     dbx = get_client(access_token)
     result = dbx.files_list_folder(path)
+    entries = list(result.entries)
+    while result.has_more:
+        result = dbx.files_list_folder_continue(result.cursor)
+        entries.extend(result.entries)
     files = []
-    for entry in result.entries:
+    for entry in entries:
         is_folder = isinstance(entry, FolderMetadata)
         files.append(
             FileInfo(
@@ -50,10 +54,7 @@ def list_files(access_token: str, path: str = "") -> list[FileInfo]:
                 path=entry.path_display,
                 size=getattr(entry, "size", None),
                 is_folder=is_folder,
-                modified=getattr(entry, "server_modified", None)
-                and str(entry.server_modified)
-                if isinstance(entry, FileMetadata)
-                else None,
+                modified=str(entry.server_modified) if isinstance(entry, FileMetadata) else None,
             )
         )
     return files
